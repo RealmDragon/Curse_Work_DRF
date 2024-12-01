@@ -1,15 +1,13 @@
-from django.urls import path, include
+from django.urls import path
 from rest_framework.routers import DefaultRouter
+from habits.apps import HabitsConfig
+from habits.views import HabitsViewSet, UserHabitViewSet
 
-from habits.views import MyHabitsViewSet, PublicHabitsViewSet
-
-
-app_name = 'habits'
+app_name = HabitsConfig.name
 
 router = DefaultRouter()
-router.register(r'my-habits', MyHabitsViewSet, basename='my_habit')
-router.register(r'public-habits', PublicHabitsViewSet, basename='public_habit')
+router.register(r"habits", HabitsViewSet, basename="habits")
 
 urlpatterns = [
-    path('', include(router.urls)),
-]
+    path("user-habits-list/", UserHabitViewSet.as_view(), name="user_habits_list")
+] + router.urls

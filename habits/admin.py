@@ -1,15 +1,18 @@
 from django.contrib import admin
-
 from habits.models import Habit
 
 
 @admin.register(Habit)
-class CourseAdmin(admin.ModelAdmin):
+class HabitAdmin(admin.ModelAdmin):
+    """
+    Админка модели Habit
+    """
     list_display = (
-        'id', 'autor', 'title', 'place',
-        'duration', 'time_action', 'action', 'prize',
-        'is_pleasant', 'last_performed', 'execution_interval_day',
-        'related', 'is_public',
+        "id",
+        "habit",
+        "sign_of_a_pleasant_habit",
+        "related_habit",
+        "reward",
     )
-    search_fields = ('id', 'autor', 'title', 'is_public',)
-    list_filter = ('id', 'autor', 'title', 'is_public',)
+    list_filter = ("sign_of_a_pleasant_habit",)
+    search_fields = ("habit",)

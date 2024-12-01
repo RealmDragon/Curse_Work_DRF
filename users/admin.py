@@ -1,12 +1,12 @@
 from django.contrib import admin
-
 from users.models import User
 
 
 @admin.register(User)
-class CourseAdmin(admin.ModelAdmin):
-    list_display = (
-        'id', 'first_name', 'email', 'phone_number',
-    )
-    search_fields = ('id', 'first_name', 'email', 'phone_number',)
-    list_filter = ('id', 'first_name', 'email', 'phone_number',)
+class UsersAdmin(admin.ModelAdmin):
+    """
+    Контроллер модели User в админке.
+    """
+    list_display = ("id", "email", "is_active", "is_staff", "is_superuser")
+    list_filter = ("is_active", "is_staff", "is_superuser")
+    search_fields = ("email",)

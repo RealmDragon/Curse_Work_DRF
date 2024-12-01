@@ -1,57 +1,57 @@
-from django.utils import timezone
-from rest_framework import serializers
-
-from habits.models import Habit
+from datetime import timedelta
+from rest_framework.validators import ValidationError
 
 
-class RewardAndRelatedValidator:
+class FieldFillingValidator:
+    """
+    Проверка заполнения полей reward и related_habit
+    """
+    def __init__(self, reward, related_habit, sign_of_a_pleasant_habit):
+        self.reward = reward
+        self.related_habit = related_habit
+        self.sign_of_a_pleasant_habit = sign_of_a_pleasant_habit
+
     def __call__(self, value):
-        if value.get('prize') and value.get('related'):
-            raise serializers.ValidationError(
-                'Нельзя заполнять одновременно поле вознаграждения и поле связанной привычки.'
+        reward_field = value.get(self.reward)
+        related_habit_field = value.get(self.related_habit)
+        sign_of_a_pleasant_habit_field = value.get(self.sign_of_a_pleasant_habit)
+
+        if reward_field and related_habit_field:
+            raise ValidationError(
+                "Может быть заполнено поле reward или поле related_habit"
             )
-
-
-class ExecutionTimeValidator:
-    def __call__(self, value):
-        if value.get('duration', 0) > 2:
-            raise serializers.ValidationError(
-                'Время выполнения должно быть не больше 2 минут.'
-            )
-
-
-class PleasantHabitValidator:
-    def __call__(self, value):
-        related_id = value.get('related')
-        if related_id:
-            related_habit = Habit.objects.filter(id=related_id).first()
-            if related_habit and not related_habit.is_pleasant:
-                raise serializers.ValidationError(
-                    'Связанная привычка должна быть помечена как приятная.'
+        if sign_of_a_pleasant_habit_field:
+            if reward_field or related_habit_field:
+                raise ValidationError(
+                    "У приятной привычки не может быть связанной привычки или вознаграждения"
+                )
+        else:
+            if not reward_field and not related_habit_field:
+                raise ValidationError(
+                    "Поле reward или поле related_habit обязательно для заполнения у полезной привычки"
                 )
 
 
-class PleasantHabitNoRelatedOrPrizeValidator:
+class RelatedHabitValidator:
+    """
+    Валидатор для проверки связанной привычки на принадлежность к приятной привычки
+    """
+    def __init__(self, related_habit):
+        self.related_habit = related_habit
+
     def __call__(self, value):
-        if value.get('is_pleasant') and (value.get('prize') or value.get('related')):
-            raise serializers.ValidationError(
-                'У приятной привычки не может быть вознаграждения или связанной привычки.'
+        habit = value.get(self.related_habit)
+        if habit:
+            if not habit.sign_of_a_pleasant_habit:
+                raise ValidationError("Связанная привычка должна быть приятной")
+
+
+def execution_time_validator(value):
+    """
+    Валидатор для проверки продолжительности выполнения привычки не более 120 секунд
+    """
+    if value:
+        if value > timedelta(seconds=120):
+            raise ValidationError(
+                "Продолжительность выполнения привычки не может быть более 120 секунд"
             )
-
-
-class FrequencyValidator:
-    def __call__(self, value):
-        if value.get('execution_interval_day', 0) > 7:
-            raise serializers.ValidationError(
-                'Нельзя выполнять привычку реже, чем 1 раз в 7 дней.'
-            )
-
-
-class LastPerformedValidator:
-    def __call__(self, value):
-        if value.get('last_performed'):
-            days_since_last = (timezone.now().date() - value['last_performed']).days
-            if days_since_last > 7:
-                raise serializers.ValidationError(
-                    'Нельзя не выполнять привычку более 7 дней.'
-                )

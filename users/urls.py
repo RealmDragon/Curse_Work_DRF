@@ -1,27 +1,18 @@
-from users.apps import UsersConfig
-from django.conf import settings
-from django.conf.urls.static import static
-from django.urls import include
 from django.urls import path
+from rest_framework.permissions import AllowAny
 from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import (TokenObtainPairView,
+                                            TokenRefreshView)
 
-from users.views import (
-    UserCreateView, UserViewSet,
-    MyTokenObtainPairView, MyTokenRefreshView
-)
-
+from users.apps import UsersConfig
+from users.views import UserViewSet
 
 app_name = UsersConfig.name
 
 router = DefaultRouter()
-router.register(r'profile', UserViewSet)  # ----- профиль -----
+router.register(r"users", UserViewSet, basename="users")
 
 urlpatterns = [
-                  path('', include(router.urls)),
-
-                  # ----- регистрация и токен -----
-                  path('register/', UserCreateView.as_view(), name='register_api'),
-                  path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
-                  path('token-refresh/', MyTokenRefreshView.as_view(), name='token_refresh'),
-
-              ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('users/token/', TokenObtainPairView.as_view(permission_classes=(AllowAny,)), name='token_obtain_pair'),
+    path('users/token/refresh/', TokenRefreshView.as_view(permission_classes=(AllowAny,)), name='token_refresh'),
+] + router.urls

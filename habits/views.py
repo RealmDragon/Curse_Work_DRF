@@ -1,29 +1,79 @@
+from django.utils.decorators import method_decorator
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets
-
+from rest_framework.permissions import IsAdminUser
+from rest_framework.views import APIView
 from habits.models import Habit
-from habits.paginators import MyPageNumberPagination
-from habits.permissions import IsOwner
+from habits.paginations import ViewUserHabitPagination
 from habits.serializers import HabitSerializer
+from users.permissions import IsOwner
 
 
-class MyHabitsViewSet(viewsets.ModelViewSet):
+@method_decorator(
+    name="list",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для получения списка всех привычек"
+    ),
+)
+@method_decorator(
+    name="retrieve",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для получения конкретной привычки"
+    ),
+)
+@method_decorator(
+    name="create",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для создания привычки"
+    ),
+)
+@method_decorator(
+    name="update",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для обновления информации о привычке"
+    ),
+)
+@method_decorator(
+    name="partial_update",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для частичного изменения информации о привычке"
+    ),
+)
+@method_decorator(
+    name="destroy",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для удаления привычки"
+    ),
+)
+class HabitsViewSet(viewsets.ModelViewSet):
     """
-    ViewSet для работы с собственными привычками пользователя.
+    Представление для модели Habit
     """
     serializer_class = HabitSerializer
-    permission_classes = [IsOwner]
-    pagination_class = MyPageNumberPagination
+    queryset = Habit.objects.all()
 
-    def get_queryset(self):
-        return Habit.objects.filter(autor=self.request.user)
+    def perform_create(self, serializer):
+        """
+        Добавление владельца к Habit при создании и определенье поля send_indicator
+        """
+        habit = serializer.save(owner=self.request.user)
+        habit.send_indicator = habit.periodicity
+        habit.save(update_fields=["send_indicator"])
+
+    def get_permissions(self):
+        if self.action in ["retrieve", "update", "partial_update", "destroy"]:
+            self.permission_classes = [IsOwner | IsAdminUser]
+        return super().get_permissions()
 
 
-class PublicHabitsViewSet(viewsets.ReadOnlyModelViewSet):
+class UserHabitViewSet(APIView):
     """
-    ViewSet для работы с публичными привычками.
+    Представление для получения списка всех привычек пользователя
     """
-    serializer_class = HabitSerializer
-
-    def get_queryset(self):
-        user = self.request.user
-        return Habit.objects.filter(is_public=Habit.IsPublicHabit.OPEN).exclude(autor=user)
+    @swagger_auto_schema(responses={200: HabitSerializer()})
+    def get(self, request):
+        habits = Habit.objects.filter(owner=request.user)
+        paginator = ViewUserHabitPagination()
+        result = paginator.paginate_queryset(habits, request)
+        serializer = HabitSerializer(result, many=True)
+        return paginator.get_paginated_response(serializer.data)

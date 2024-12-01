@@ -4,67 +4,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path='.env.prod')  # для docker .env.prod без docker .env
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR /'.env')
 
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-DEBUG = os.getenv('DJANGO_DEBUG', False).lower() == 'true'
+DEBUG = True
 
-ALLOWED_HOSTS = list(os.getenv('DJANGO_ALLOWED_HOSTS'))
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-
-LANGUAGE_CODE = 'ru'
-TIME_ZONE = 'Europe/Moscow'
-
-USE_I18N = True
-
-USE_TZ = True
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-ROOT_URLCONF = 'config.urls'
-
-WSGI_APPLICATION = 'config.wsgi.application'
+ALLOWED_HOSTS = []
 
 
-# ------------------------------------------------- Settings Loging ----------------------------------------------------
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'habits.tasks': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-        },
-    },
-}
-
-# --------------------------------------------------- Settings CORS ----------------------------------------------------
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
-
-# ----------------------------------------------- Application definition -----------------------------------------------
 INSTALLED_APPS = [
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'django_extensions',
-
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -72,17 +22,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'rest_framework',
+    'rest_framework_simplejwt',
     'drf_yasg',
+    'django_celery_beat',
     'corsheaders',
     'users',
     'habits',
 ]
 
-# ----------------------------------------------------- MIDDLEWARE -----------------------------------------------------
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
-
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -92,11 +41,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# ----------------------------------------------------- TEMPLATES ------------------------------------------------------
+ROOT_URLCONF = 'config.urls'
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -109,23 +59,22 @@ TEMPLATES = [
     },
 ]
 
-# ------------------------------------------------ Настройки JWT-токенов -----------------------------------------------
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ]
+WSGI_APPLICATION = 'config.wsgi.application'
+
+
+# Database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        "USER": os.getenv("USER_DB"),
+        "NAME": os.getenv("NAME"),
+        "HOST": os.getenv("HOST"),
+        "PORT": os.getenv("PORT"),
+        "PASSWORD": os.getenv("PASSWORD"),
+    }
 }
 
-# ------------------------------------------ Настройки срока действия токенов ------------------------------------------
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-}
 
-# ---------------------------------------------- AUTH_PASSWORD_VALIDATORS ----------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -141,49 +90,46 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# ---------------------------------------------- База данных PostgreSQL -----------------------------------------------
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.getenv('POSTGRES_DB'),
-        'USER': os.getenv('POSTGRES_USER'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-    }
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 5,
 }
 
-# -------------------------------------------------- Сервер для кеша ---------------------------------------------------
-CACHES_ENABLED = os.getenv('DJANGO_CACHES_ENABLED', False).lower() == 'true'
-if CACHES_ENABLED:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": os.getenv('REDIS_LOCATION'),
-        }
-    }
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=200),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
 
-# -------------------------------------------- Настройки для аутентификации --------------------------------------------
-AUTH_USER_MODEL = 'users.User'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+LANGUAGE_CODE = 'en-us'
 
-# ------------------------------------------------ Настройки для Celery ------------------------------------------------
-# URL-адрес брокера сообщений
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')  # Например, Redis, который по умолчанию работает на порту 6379
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')  # URL-адрес брокера результатов, также Redis
-CELERY_TIMEZONE = os.getenv('CELERY_TIMEZONE')
-CELERY_TASK_TRACK_STARTED = os.getenv('CELERY_TASK_TRACK_STARTED', False).lower() == 'true'
-CELERY_TASK_TIME_LIMIT = 30 * 60  # Максимальное время на выполнение задачи
+TIME_ZONE = 'UTC'
+
+USE_I18N = True
+
+USE_TZ = True
+
+STATIC_URL = 'static/'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = "users.User"
+
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("REDIS_RESULT_BACKEND")
 
 CELERY_BEAT_SCHEDULE = {
-    'send-habit-reminders-every-minute': {
-        'task': 'habits.tasks.check_habit_reminders',
-        'schedule': timedelta(seconds=30),  # Проверять каждые 30 секунд
-    },
+    "send_message_to_user": {
+        "task": "habits.tasks.send_message_to_user",
+        "schedule": timedelta(days=1),
+    }
 }
 
-# Запуск задач синхронно
-CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', False).lower() == 'true'
-# Исключения будут пробрасываться
-CELERY_EAGER_PROPAGATES_EXCEPTIONS = os.getenv('CELERY_EAGER_PROPAGATES_EXCEPTIONS', False).lower() == 'true'
+TELEGRAM_BOT_ID = os.getenv("TELEGRAM_BOT_ID")

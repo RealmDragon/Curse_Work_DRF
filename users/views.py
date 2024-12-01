@@ -1,65 +1,60 @@
-from rest_framework import viewsets, status, generics
-from rest_framework.exceptions import MethodNotAllowed
+from django.utils.decorators import method_decorator
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAdminUser
-from rest_framework.response import Response
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-
-from habits.permissions import IsUser
 from users.models import User
+from users.serializers import UserSerializer
 
-from users.serializers import (
-    MyTokenObtainPairSerializer,
-    MyTokenRefreshSerializer, UserSerializer, RegisterUserSerializer
+@method_decorator(
+    name="list",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для получения списка всех пользователей"
+    ),
 )
-
-
-# ------------------------------------------------------ юзеры ------------------------------------------------------
-class UserCreateView(generics.CreateAPIView):
-    """Создание нового юзера"""
-    queryset = User.objects.all()
-    serializer_class = RegisterUserSerializer
-    permission_classes = [AllowAny]
-
-    def perform_create(self, serializer):
-        user = serializer.save()
-        user.set_password(user.password)
-        user.save()
-
-
+@method_decorator(
+    name="retrieve",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для получения конкретного пользователя"
+    ),
+)
+@method_decorator(
+    name="create",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для создания пользователя"
+    ),
+)
+@method_decorator(
+    name="update",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для обновления информации о пользователе"
+    ),
+)
+@method_decorator(
+    name="partial_update",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для частичного изменения информации о пользователе"
+    ),
+)
+@method_decorator(
+    name="destroy",
+    decorator=swagger_auto_schema(
+        operation_description="Контроллер для удаления пользователя"
+    ),
+)
 class UserViewSet(viewsets.ModelViewSet):
     """
-    ViewSet для просмотра, редактирования и деактивации пользователя.
+    Представление для модели User
     """
-    queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsUser | IsAdminUser]
+    queryset = User.objects.all()
+    permission_classes = [IsAdminUser]
 
-    def get_queryset(self):
-        """
-        Возвращает список пользователей в зависимости от прав доступа.
-        """
-        if self.request.user.has_perm('users.is_admin'):
-            return User.objects.all()
-        return User.objects.filter(id=self.request.user.id)
+    def get_permissions(self):
+        if self.action == "create":
+            self.permission_classes = (AllowAny,)
+        return super().get_permissions()
 
-    def create(self, request, *args, **kwargs):
-        raise MethodNotAllowed('POST', detail='Создание профиля через этот эндпоинт запрещено.')
-
-    def destroy(self, request, *args, **kwargs):
-        """
-        Деактивирует пользователя вместо его удаления.
-        """
-        user = self.get_object()
-        user.is_active = False
-        user.save()
-        return Response({'status': 'Профиль удален'}, status=status.HTTP_204_NO_CONTENT)
-
-
-class MyTokenObtainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
-    permission_classes = [AllowAny]
-
-
-class MyTokenRefreshView(TokenRefreshView):
-    serializer_class = MyTokenRefreshSerializer
-    permission_classes = [AllowAny]
+    def perform_create(self, serializer):
+        user = serializer.save(is_active=True)
+        user.set_password(user.password)
+        user.save(update_fields=["password",])
